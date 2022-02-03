@@ -4,6 +4,11 @@ from torch import nn
 import math
 
 class LinearAverageOp(Function):
+    """
+    A customary function with autograd implemented for back prop.
+
+    Question: Should memory bank be updated every epoch?
+    """
     @staticmethod
     def forward(self, x, y, memory, params):
         T = params[0].item()
