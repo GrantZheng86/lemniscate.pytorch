@@ -11,6 +11,12 @@ class LinearAverageOp(Function):
     """
     @staticmethod
     def forward(self, x, y, memory, params):
+        """
+        x: latent dimension after pass through the model. Dimension = Batch size x latent dimension(128)
+        y: labels for each images. Labels are image indices since each image is its own class
+        memory: memory bank? Dimension= class numbers(number of images) x latent dimension(128)
+        params: hyper-parameter "temperature" and "momentum"
+        """
         T = params[0].item()
         batchSize = x.size(0)
 
@@ -49,13 +55,22 @@ class LinearAverageOp(Function):
 class LinearAverage(nn.Module):
 
     def __init__(self, inputSize, outputSize, T=0.07, momentum=0.5):
+        """
+        inputSize: Latent feature dimension for image, 128 in the paper;
+        outputSize: number of total images in set. Each image is regarded as a single class
+        T: Temperature hyper-parameter
+        momentum: momentum hyper-parameter for SGD
+        """
         super(LinearAverage, self).__init__()
         stdv = 1 / math.sqrt(inputSize)
         self.nLem = outputSize
 
         self.register_buffer('params',torch.tensor([T, momentum]));
         stdv = 1. / math.sqrt(inputSize/3)
+
+        # Memory back for feature storing
         self.register_buffer('memory', torch.rand(outputSize, inputSize).mul_(2*stdv).add_(-stdv))
+
 
     def forward(self, x, y):
         out = LinearAverageOp.apply(x, y, self.memory, self.params)
