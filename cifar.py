@@ -138,6 +138,8 @@ def train(epoch):
         optimizer.zero_grad()
 
         features = net(inputs)
+        if batch_idx % 50 == 0:
+            print()
         outputs = lemniscate(features, indexes)
         loss = criterion(outputs, indexes)
 

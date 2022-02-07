@@ -7,28 +7,39 @@ import math
 class NCEFunction(Function):
     @staticmethod
     def forward(self, x, y, memory, idx, params):
-        K = int(params[0].item())
-        T = params[1].item()
-        Z = params[2].item()
+        """
+        x: latent representation after pass through the initial network, 128 in paper
+        y: label for each image, y in this case is the index of each image since each one is its own category
+        memory: memory bank
+        idx:
+        params: Hyper parameter [negative samples, temperature, normalizing constant, momentum]
+
+        This function finds P(i|V) as shown in equation 2 in the paper
+        """
+        K = int(params[0].item())   # Number of negative samples
+        T = params[1].item()        # Hyper parameter -- Temperature
+        Z = params[2].item()        # Normalizing Constant
 
         momentum = params[3].item()
         batchSize = x.size(0)
-        outputSize = memory.size(0)
-        inputSize = memory.size(1)
+        outputSize = memory.size(0)     # Number of training images, since each image is categorized as its own cate
+        inputSize = memory.size(1)      # Latent dimensions
 
         # sample positives & negatives
-        idx.select(1,0).copy_(y.data)
+        idx.select(1,0).copy_(y.data)       # Changes idx[:, 0] into labels, idx[:, 1:end] remains randomly generated
 
-        # sample correspoinding weights
+        # sample correspoinding weights from memory
+        # torch.index_select： selects samples along the 2nd argument with indices in 3rd argument
         weight = torch.index_select(memory, 0, idx.view(-1))
         weight.resize_(batchSize, K+1, inputSize)
 
         # inner product
-        out = torch.bmm(weight, x.data.resize_(batchSize, inputSize, 1))
+        # torch.bmm : batch matrix multiplication. The non-parameterized equation in paper
+        out = torch.bmm(weight, torch.reshape(x, (batchSize, inputSize, 1)))
         out.div_(T).exp_() # batchSize * self.K+1
         x.data.resize_(batchSize, inputSize)
 
-        if Z < 0:
+        if Z < 0:   # if Z is not initialized, using the Monte-Carlo method to approximate one
             params[2] = out.mean() * outputSize
             Z = params[2].item()
             print("normalization constant Z is set to {:.1f}".format(Z))
@@ -36,6 +47,7 @@ class NCEFunction(Function):
         out.div_(Z).resize_(batchSize, K+1)
 
         self.save_for_backward(x, memory, y, weight, out, params)
+        # output in dimension of (k + 1) * batch_size
 
         return out
 
@@ -53,7 +65,8 @@ class NCEFunction(Function):
         # add temperature
         gradOutput.data.div_(T)
 
-        gradOutput.data.resize_(batchSize, 1, K+1)
+        # gradOutput.data.resize_(batchSize, 1, K+1)
+        torch.reshape(gradOutput, (batchSize, 1, K+1))
         
         # gradient of linear
         gradInput = torch.bmm(gradOutput.data, weight)

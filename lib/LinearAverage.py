@@ -30,6 +30,10 @@ class LinearAverageOp(Function):
 
     @staticmethod
     def backward(self, gradOutput):
+        """
+        Break point in this function does not stop the run. Some suggestions said that things here are achieved through
+        the C side.
+        """
         x, memory, y, params = self.saved_tensors
         batchSize = gradOutput.size(0)
         T = params[0].item()
