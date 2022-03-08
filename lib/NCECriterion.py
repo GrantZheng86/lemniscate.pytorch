@@ -23,13 +23,16 @@ class NCECriterion(nn.Module):
         # Equation references : RECURRENT NEURAL NETWORK LANGUAGE MODEL TRAINING WITH NOISE CONTRASTIVE ESTIMATION
         # FOR SPEECH RECOGNITION
         # eq 5.1 : P(origin=model) = Pmt / (Pmt + k*Pnt)
+        # This equation is also the same as the p(D=0|c,w) in the CMU NCE review
         Pmt = x.select(1,0)     # Equivalent to x[:, 0], the genuine samples
         Pmt_div = Pmt.add(K * Pnt + eps)
         lnPmt = torch.div(Pmt, Pmt_div)
         
         # eq 5.2 : P(origin=noise) = k*Pns / (Pms + k*Pns)
+        # This equation is also the same as the p(D=1|c,w) in the CMU NCE review
         # Tensor.narrow => selects only a portion of the tensor. In this case, it selects the noise samples
         Pon_div = x.narrow(1,1,K).add(K * Pns + eps)
+        # The "fill_" command fills a specific tensor with the given value
         Pon = Pon_div.clone().fill_(K * Pns)
         lnPon = torch.div(Pon, Pon_div)
      

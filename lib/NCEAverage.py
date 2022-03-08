@@ -22,16 +22,17 @@ class NCEFunction(Function):
 
         momentum = params[3].item()
         batchSize = x.size(0)
-        outputSize = memory.size(0)     # Number of training images, since each image is categorized as its own cate
+        outputSize = memory.size(0)     # Number of training images, since each image is categorized as its own cate.
+        # The output size is used for Monte Carlo calculation for normalization const
         inputSize = memory.size(1)      # Latent dimensions
 
         # sample positives & negatives
         idx.select(1,0).copy_(y.data)       # Changes idx[:, 0] into labels, idx[:, 1:end] remains randomly generated
 
-        # sample correspoinding weights from memory
+        # sample corresponding weights from memory
         # torch.index_select： selects samples along the 2nd argument with indices in 3rd argument
         weight = torch.index_select(memory, 0, idx.view(-1))
-        weight.resize_(batchSize, K+1, inputSize)
+        weight.resize_(batchSize, K+1, inputSize)               # This weight is the dim of 128 representation
 
         # inner product
         # torch.bmm : batch matrix multiplication. The non-parameterized equation in paper
@@ -44,7 +45,7 @@ class NCEFunction(Function):
             Z = params[2].item()
             print("normalization constant Z is set to {:.1f}".format(Z))
 
-        out.div_(Z).resize_(batchSize, K+1)
+        out.div_(Z).resize_(batchSize, K+1)     # Out here is now in probability
 
         self.save_for_backward(x, memory, y, weight, out, params)
         # output in dimension of (k + 1) * batch_size
@@ -98,7 +99,7 @@ class NCEAverage(nn.Module):
  
     def forward(self, x, y):
         batchSize = x.size(0)
-        idx = self.multinomial.draw(batchSize * (self.K+1)).view(batchSize, -1)
+        idx = self.multinomial.draw(batchSize * (self.K+1)).view(batchSize, -1) # The drew samples are in length of K+1
         out = NCEFunction.apply(x, y, self.memory, idx, self.params)
         return out
 
